@@ -7,17 +7,18 @@ using System.Threading.Tasks;
 
 namespace readmeApp
 {
-    interface IHasWebItem
+    interface IHasTasks
     {
-        IEnumerable<Object> webItem { get; set; }
+        ITask[] TaskItems { get; set; }
     }
-    interface IHasError
+    interface ITask
     {
         string error { get; set; }
+        string taskDetails { get; set; }
     }
 
 
-    class ReadMeObject : IHasError
+    class ReadMeObject : IHasTasks, ITask
     {
         public string readmeStringContent { get; set; }
         public string htmlStringContent { get; set; }
@@ -26,19 +27,20 @@ namespace readmeApp
         public string fileName { get; set; }
         public string taskDetails { get; set; }
         public System.Xml.XmlDocument xmlDocument { get; set; }
-        public ImageObject[] images { get; set; }
+        public ITask[] TaskItems { get; set; }
     }
-    class ImageObject
+    class ImageObject : ITask
     {
         public string url { get; set; }
         public string newUrl { get; set; }
         public string filePath { get; set; }
         public string fileName {get;set;}
         public string error { get; set; }
+        public string taskDetails { get; set; }
     }
-    class Model
+    class Model : IHasTasks
     {
-        public ReadMeObject[] readmeObjects { get; set; }
+        public ITask[] TaskItems { get; set; }
         public int activeConnections = 2;
         public int cooldownTime = 1000;
 

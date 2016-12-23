@@ -12,56 +12,63 @@ namespace readmeApp
         static void Main(string[] args)
         {
             Model whatevuh = new Model();
-            whatevuh.readmeObjects = Model.rmObjects;
-            Func<Func<ReadMeObject, ReadMeObject>, Func<Model, Model>> processReadme = Functions.processEachReadmeObject((m) => m.error != null);
-            Func<Model,Model> process = Functions.compose(
-                new Func<Model, Model>[] 
+            whatevuh.TaskItems = Model.rmObjects;
+            List<Task> taskList = new List<Task>();
+            List<IHasTasks> parentContext = new List<IHasTasks>();
+            Func<Func<ITask, List<IHasTasks>, ITask>, Func<IHasTasks, IHasTasks>> processTask = 
+                Functions.processTaskList((m) => m.error == null,parentContext);
+            Func<IHasTasks,IHasTasks> process = Functions.compose(
+                new Func<IHasTasks, IHasTasks>[] 
                   { 
                     Functions.removeDuplicateReadmeObjectUrl
-                    ,Functions.taco(
-                        Functions.taco(Functions.downLoadHtml,processReadme)
-                        ,Functions.throttle
-                    )
-                    ,Functions.taco(Functions.setHtml,processReadme)
-                    ,Functions.taco(Functions.setFileName,processReadme)
-                    ,Functions.taco(Functions.setXml,processReadme)
-                    ,Functions.taco(Functions.createImageObjects,processReadme)
+                    ,Functions.taco(Functions.downLoadHtml,processTask)
+                    ,Functions.taco(Functions.setHtml,processTask)
+                    ,Functions.taco(Functions.setFileName,processTask)
+                    ,Functions.taco(Functions.setXml,processTask)
+                    ,Functions.taco(Functions.createImageObjects,processTask)
                     //following functions deal with imageObjects, should wrap them like processEachReadmeObject
                     ,Functions.taco(
-                        Functions.taco(Functions.setImageFileNamesPathsAndNewUrl,Functions.processImageObject)
-                        ,processReadme
+                        Functions.multiWrap(
+                            Functions.taco(Functions.setImageFileNamesPathsAndNewUrl, processTask)
+                        )
+                        ,processTask
                     )
                     ,Functions.taco(
-                        Functions.taco(Functions.createResourceRootDirectories,Functions.processImageObject)
-                        ,processReadme
+                        Functions.multiWrap(
+                            Functions.taco(Functions.createResourceRootDirectories,processTask)
+                        )
+                        ,processTask
                     )
                     ,Functions.taco(//can't throttle this with taco, C# can't handle the type for it @todo: anther implementation of throttle
-                        Functions.taco(Functions.downloadImages,Functions.processImageObject)
-                        ,processReadme
+                        Functions.multiWrap(
+                            Functions.taco(Functions.downloadImages,processTask)
+                        )
+                        ,processTask
                     )
                     //these operate on ReadmeObjects
-                    ,Functions.taco(Functions.setUrlsInDocument,processReadme)
-                    ,Functions.taco(Functions.rewriteHtmlString,processReadme)
-                    ,Functions.taco(Functions.saveHtmlStringToFile,processReadme)
+                    ,Functions.taco(Functions.setUrlsInDocument,processTask)
+                    ,Functions.taco(Functions.rewriteHtmlString,processTask)
+                    ,Functions.taco(Functions.saveHtmlStringToFile,processTask)
                   }
             );
-            Model result = process(whatevuh);
-            ImageObject[] imageErrors = result.readmeObjects
-                    .Where((readmeObject)=> readmeObject.images != null)
-                    .Select((readmeObject) => readmeObject.images
+            Model result = (Model)process(whatevuh);
+            ImageObject[] imageErrors = result.TaskItems
+                    .Where((readmeObject) => ((ReadMeObject)readmeObject).TaskItems != null)
+                    .Select((readmeObject) => (
+                        (ReadMeObject)readmeObject).TaskItems
+                        .Select((imageObject)=>(ImageObject)imageObject)
                         .Where((imageObject) => imageObject.error != null)
                     )
                     .Aggregate(
-                      new ImageObject[] {}
-                      ,(all, one) => {
+                      (all, one) => {
                         if(all == null){
                             all = new ImageObject[] {};
                         }
-                        return all.Concat(one).ToArray();
+                        return all.Concat(one);
                     })
                     .ToArray();
 
-            string[] errors = result.readmeObjects
+            string[] errors = result.TaskItems
                 .Where((o) => o.error != null)
                 .Select((readmeObject) => readmeObject.error + Environment.NewLine + "   " + readmeObject.taskDetails)
                 .ToArray();

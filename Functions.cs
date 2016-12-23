@@ -12,45 +12,47 @@ namespace readmeApp
 {
     class Functions
     {
-        public static Func<Model, Model> compose(Func<Model, Model> one, Func<Model, Model> two)
+        public static Func<IHasTasks, IHasTasks> compose(Func<IHasTasks, IHasTasks> one, Func<IHasTasks, IHasTasks> two)
         {
             return x => two(one(x));
         }
-        public static Func<Model, Model> compose(Func<Model, Model>[] functions)
+        public static Func<IHasTasks, IHasTasks> compose(Func<IHasTasks, IHasTasks>[] functions)
         {
-            return ((new Func<Model, Model>[] { (x) => x })).Concat(functions)
+            return ((new Func<IHasTasks, IHasTasks>[] { (x) => x })).Concat(functions)
                 .Aggregate((f, all) => Functions.compose(f, all));
         }
-        public static Func<Model, Model> taco(Func<ReadMeObject, ReadMeObject> filling, Func<Func<ReadMeObject, ReadMeObject>, Func<Model, Model>> wrap)
+        public static Func<IHasTasks, IHasTasks> taco(Func<ITask, List<IHasTasks>, ITask> filling, Func<Func<ITask, List<IHasTasks>, ITask>, Func<IHasTasks, IHasTasks>> wrap)
         {
             return wrap(filling);
         }
-        public static Func<Model, Model> taco(Func<Model, Model> filling, Func<Func<Model, Model>, Func<Model, Model>> wrap)
+        public static Func<ITask, List<IHasTasks>, ITask> multiWrap(Func<IHasTasks, IHasTasks> taco)
         {
-            return wrap(filling);
-        }
-        public static Func<ReadMeObject, ReadMeObject> taco(Func<ImageObject, string, ImageObject> filling, Func<Func<ImageObject, string, ImageObject>, Func<ReadMeObject, ReadMeObject>> wrap)
-        {
-            return wrap(filling);
+            return (ITask task,List<IHasTasks> l)=>{
+                taco(l.Last());
+                return task;
+            };
         }
 
-        public static ReadMeObject setHtml(ReadMeObject readmeObject)
+        public static ReadMeObject setHtml(ITask o, List<IHasTasks> parentContext)
         {
+            ReadMeObject readmeObject = (ReadMeObject)o;
             readmeObject.taskDetails = "Convert readme to html";
             readmeObject.htmlStringContent = CommonMark.CommonMarkConverter.Convert(readmeObject.readmeStringContent);
             return readmeObject;
         }
 
-        public static ReadMeObject downLoadHtml(ReadMeObject readmeObject)
+        public static ReadMeObject downLoadHtml(ITask o, List<IHasTasks> parentContext)
         {
+            ReadMeObject readmeObject = (ReadMeObject)o;
             readmeObject.taskDetails = "Download:"+readmeObject.url;
             WebClient client = new WebClient();
             readmeObject.readmeStringContent = client.DownloadString(readmeObject.url);
             return readmeObject;
         }
 
-        public static ReadMeObject setFileName(ReadMeObject readmeObject)
+        public static ReadMeObject setFileName(ITask o, List<IHasTasks> parentContext)
         {
+            ReadMeObject readmeObject = (ReadMeObject)o;
             readmeObject.taskDetails = "Set file name";
             Uri url = new Uri(readmeObject.url);
             readmeObject.fileName = url.AbsolutePath.Replace("/","-");
@@ -61,22 +63,26 @@ namespace readmeApp
             readmeObject.fileName = url.Host + "-" + readmeObject.fileName + ".html";
             return readmeObject;
         }
-        public static ReadMeObject saveHtmlStringToFile(ReadMeObject readmeObject)
+        public static ReadMeObject saveHtmlStringToFile(ITask o, List<IHasTasks> parentContext)
         {
-            readmeObject.taskDetails = "Save to:"+readmeObject.fileName;
+            ReadMeObject readmeObject = (ReadMeObject)o;
+            readmeObject.taskDetails = "Save to:" + readmeObject.fileName;
             System.IO.File.WriteAllText(readmeObject.fileName, readmeObject.htmlStringContent);
             return readmeObject;
         }
         public static List<System.Xml.XmlNode> toList(System.Xml.XmlNodeList nodelist){
             return nodelist.Cast<System.Xml.XmlNode>().ToList();
         }
-        public static ReadMeObject setXml(ReadMeObject readmeObject){
+        public static ReadMeObject setXml(ITask o, List<IHasTasks> parentContext)
+        {
+            ReadMeObject readmeObject = (ReadMeObject)o;
             readmeObject.xmlDocument = new System.Xml.XmlDocument();
             readmeObject.xmlDocument.LoadXml("<body>"+readmeObject.htmlStringContent+"</body>");
             return readmeObject;
         }
-        public static ReadMeObject createImageObjects(ReadMeObject readmeObject)
+        public static ReadMeObject createImageObjects(ITask o, List<IHasTasks> parentContext)
         {
+            ReadMeObject readmeObject = (ReadMeObject)o;
             System.Xml.XmlNodeList images = readmeObject.xmlDocument.SelectNodes("//img");
             ImageObject[] l = Functions.toList(images)
                 .Where((image) => image.Attributes != null)
@@ -89,11 +95,13 @@ namespace readmeApp
                     return io;
                 })
                 .ToArray();
-            readmeObject.images = l;
+            readmeObject.TaskItems = l;
             return readmeObject;
         }
-        public static ImageObject setImageFileNamesPathsAndNewUrl(ImageObject imageObject,string baseDirectory)
+        public static ImageObject setImageFileNamesPathsAndNewUrl(ITask o, List<IHasTasks> parentContext)
         {
+            ImageObject imageObject = (ImageObject)o;
+            ReadMeObject readmeObject = (ReadMeObject)parentContext.Last();
             Uri url = new Uri(imageObject.url);
             string[] path = (url.Host + url.AbsolutePath)
                 .Split(new char[] {'/'}).ToArray();
@@ -103,7 +111,7 @@ namespace readmeApp
             )
                 .Replace("%20", "-")
                 .Replace(":","-");
-            imageObject.newUrl = baseDirectory
+            imageObject.newUrl = readmeObject.fileName.Substring(0, readmeObject.fileName.Length - 5) + ".resource"
                 + "/" 
                 +imageObject.filePath.Replace(
                     Path.DirectorySeparatorChar
@@ -111,9 +119,11 @@ namespace readmeApp
                 );
             return imageObject;
         }
-        public static ImageObject createResourceRootDirectories(ImageObject imageObject,string baseDirectory)
+        public static ImageObject createResourceRootDirectories(ITask o, List<IHasTasks> parentContext)
         {
-            new string[] { baseDirectory }
+            ImageObject imageObject = (ImageObject)o;
+            ReadMeObject readmeObject = (ReadMeObject)parentContext.Last();
+            new string[] { readmeObject.fileName.Substring(0, readmeObject.fileName.Length - 5) + ".resource" }
                 .Concat(imageObject.filePath.Split(new char[] { Path.DirectorySeparatorChar }))
                 .Aggregate((all, one) =>
                 {
@@ -122,9 +132,11 @@ namespace readmeApp
                 });
             return imageObject;
         }
-        public static ImageObject downloadImages(ImageObject imageObject,string baseDirectory)
+        public static ImageObject downloadImages(ITask o, List<IHasTasks> parentContext)
         {
-            string check = baseDirectory
+            ImageObject imageObject = (ImageObject)o;
+            ReadMeObject readmeObject = (ReadMeObject)parentContext.Last();
+            string check = readmeObject.fileName.Substring(0, readmeObject.fileName.Length - 5) + ".resource"
                     + "\\"
                     + imageObject.filePath;
             WebClient client = new WebClient();
@@ -134,8 +146,9 @@ namespace readmeApp
             );
             return imageObject;
         }
-        public static ReadMeObject setUrlsInDocument(ReadMeObject readmeObject)
+        public static ReadMeObject setUrlsInDocument(ITask o, List<IHasTasks> parentContext)
         {
+            ReadMeObject readmeObject = (ReadMeObject)o;
             int index = -1;
             Array.ForEach(
                 Functions.toList(readmeObject.xmlDocument.SelectNodes("//img"))
@@ -146,14 +159,14 @@ namespace readmeApp
                 , (imageNode) =>
                 {
                     ++index;
-                    imageNode.Attributes["src"].Value = readmeObject.images[index].newUrl;
+                    imageNode.Attributes["src"].Value = ((ImageObject)readmeObject.TaskItems[index]).newUrl;
                 }
             );
             return readmeObject;
         }
-        public static ReadMeObject rewriteHtmlString(ReadMeObject readmeObject)
+        public static ReadMeObject rewriteHtmlString(ITask o, List<IHasTasks> parentContext)
         {
-
+            ReadMeObject readmeObject = (ReadMeObject)o;
             StringWriter stringWriter = new StringWriter();
             XmlWriter xmlTextWriter = XmlWriter.Create(stringWriter);
             readmeObject.xmlDocument.WriteTo(xmlTextWriter);
@@ -162,12 +175,13 @@ namespace readmeApp
             readmeObject.htmlStringContent = stringWriter.GetStringBuilder().ToString();
             return readmeObject;
         }
-        public static Model removeDuplicateReadmeObjectUrl(Model model)
+        public static Model removeDuplicateReadmeObjectUrl(IHasTasks o)
         {
+            Model model = (Model)o;
             bool[] returnValues;
             int index = 0;
-            string[] urls = model.readmeObjects
-                .Select((readmeObject)=>readmeObject.url).ToArray();
+            string[] urls = model.TaskItems
+                .Select((readmeObject)=>((ReadMeObject)readmeObject).url).ToArray();
             returnValues = urls.Select((string url) =>
             {
                 int urlIndex = Array.IndexOf(urls, url,++index);
@@ -175,94 +189,65 @@ namespace readmeApp
             })
             .ToArray();
             index = -1;
-            model.readmeObjects = model.readmeObjects
+            model.TaskItems = model.TaskItems
                 .Where((x) => returnValues[++index])
                 .ToArray();
             return model;
         }
 
-        public static Func<Func<ReadMeObject, ReadMeObject>,Func<Model, Model>> processEachReadmeObject(Func<IHasError,bool> continueProcess)
+        public static Func<Func<ITask, List<IHasTasks>, ITask>, Func<IHasTasks, IHasTasks>> processTaskList(Func<ITask, bool> continueProcess,List<IHasTasks> parentContext)
         {
-            return (Func<ReadMeObject, ReadMeObject> filling) =>
+            return (Func<ITask, List<IHasTasks>, ITask> filling) =>
             {
                 //return (m) => m;
-                Func<Model, Model> ret = (model) =>
+                Func<IHasTasks, IHasTasks> ret = (itemContainingTasks) =>
                 {
-                    List<Task> taskList = new List<Task>();
+                    parentContext.Add(itemContainingTasks);
                     Array.ForEach(
-                        model.readmeObjects
+                        itemContainingTasks.TaskItems.ToArray()
                         , (readmeObject) =>
                         {
-                            taskList.Add(Task.Run(() =>
+                            if (continueProcess((ITask)readmeObject))
                             {
-                                if (continueProcess((IHasError)readmeObject))
+                                readmeObject.taskDetails = "";
+                                try
                                 {
-                                    readmeObject.taskDetails = "";
-                                    try
-                                    {
-                                        filling(readmeObject);
-                                    }
-                                    catch (Exception e)
-                                    {
-                                        readmeObject.error = e.Message;
-                                    }
-
+                                    filling(readmeObject,parentContext);
                                 }
-                            }));
+                                catch (Exception e)
+                                {
+                                    readmeObject.error = e.Message;
+                                }
+
+                            }
                         }
                     );
-                    Task.WaitAll(taskList.ToArray());
-                    return model;
+                    return itemContainingTasks;
                 };
                 return ret;
             };
         }
-        public static Func<Model, Model> throttle(Func<Model, Model> filling)
+        public static Func<IHasTasks, IHasTasks> throttle(Func<IHasTasks, IHasTasks> filling)
         {
-            Func<Model, Model> ret = (model) =>
+            Func<IHasTasks, IHasTasks> ret = (model) =>
             {
-                ReadMeObject[] all = model.readmeObjects;
+                ITask[] all = model.TaskItems.ToArray();
                 int process = 0;
+                int activeConnections = 10;
+                int cooldownTime = 1000;
                 while(process<all.Length){
-                    model.readmeObjects = all.Skip(process).Take(model.activeConnections).ToArray();
+                    model.TaskItems = all.Skip(process).Take(activeConnections).ToArray();
                     filling(model);
-                    process = process + model.activeConnections;
+                    process = process + activeConnections;
                     Console.WriteLine("Have fetched, now sleeping"+process.ToString());
                     if (process < all.Length)
                     {
-                        Thread.Sleep(model.cooldownTime);
+                        Thread.Sleep(cooldownTime);
                     }
                     Console.WriteLine("Woke up, continuing"+process.ToString());
                 }
-                model.readmeObjects = all;
+                model.TaskItems = all;
                 return model;
-            };
-            return ret;
-        }
-        public static Func<ReadMeObject, ReadMeObject> processImageObject(Func<ImageObject, string, ImageObject> filling)
-        {
-            Func<ReadMeObject, ReadMeObject> ret = (readmeObject) =>
-            {
-                string basePath = readmeObject.fileName.Substring(0, readmeObject.fileName.Length - 5) + ".resource";
-                List<Task> taskList = new List<Task>();
-                Array.ForEach(
-                    readmeObject.images
-                    , (imageObject) =>
-                    {
-                        taskList.Add(Task.Run(() =>
-                        {
-                            try
-                            {
-                                filling(imageObject, basePath);
-                            }
-                            catch (Exception e)
-                            {
-                                imageObject.error = e.Message;
-                            }
-                        }));
-                    }
-                );
-                return readmeObject;
             };
             return ret;
         }
