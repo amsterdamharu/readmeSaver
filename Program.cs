@@ -13,35 +13,36 @@ namespace readmeApp
         {
             Model whatevuh = new Model();
             whatevuh.readmeObjects = Model.rmObjects;
+            Func<Func<ReadMeObject, ReadMeObject>, Func<Model, Model>> processReadme = Functions.processEachReadmeObject((m) => m.error != null);
             Func<Model,Model> process = Functions.compose(
                 new Func<Model, Model>[] 
                   { 
                     Functions.removeDuplicateReadmeObjectUrl
                     ,Functions.taco(
-                        Functions.taco(Functions.downLoadHtml,Functions.processEachReadmeObject)
+                        Functions.taco(Functions.downLoadHtml,processReadme)
                         ,Functions.throttle
                     )
-                    ,Functions.taco(Functions.setHtml,Functions.processEachReadmeObject)
-                    ,Functions.taco(Functions.setFileName,Functions.processEachReadmeObject)
-                    ,Functions.taco(Functions.setXml,Functions.processEachReadmeObject)
-                    ,Functions.taco(Functions.createImageObjects,Functions.processEachReadmeObject)
+                    ,Functions.taco(Functions.setHtml,processReadme)
+                    ,Functions.taco(Functions.setFileName,processReadme)
+                    ,Functions.taco(Functions.setXml,processReadme)
+                    ,Functions.taco(Functions.createImageObjects,processReadme)
                     //following functions deal with imageObjects, should wrap them like processEachReadmeObject
                     ,Functions.taco(
                         Functions.taco(Functions.setImageFileNamesPathsAndNewUrl,Functions.processImageObject)
-                        ,Functions.processEachReadmeObject
+                        ,processReadme
                     )
                     ,Functions.taco(
                         Functions.taco(Functions.createResourceRootDirectories,Functions.processImageObject)
-                        ,Functions.processEachReadmeObject
+                        ,processReadme
                     )
                     ,Functions.taco(//can't throttle this with taco, C# can't handle the type for it @todo: anther implementation of throttle
                         Functions.taco(Functions.downloadImages,Functions.processImageObject)
-                        ,Functions.processEachReadmeObject
+                        ,processReadme
                     )
                     //these operate on ReadmeObjects
-                    ,Functions.taco(Functions.setUrlsInDocument,Functions.processEachReadmeObject)
-                    ,Functions.taco(Functions.rewriteHtmlString,Functions.processEachReadmeObject)
-                    ,Functions.taco(Functions.saveHtmlStringToFile,Functions.processEachReadmeObject)
+                    ,Functions.taco(Functions.setUrlsInDocument,processReadme)
+                    ,Functions.taco(Functions.rewriteHtmlString,processReadme)
+                    ,Functions.taco(Functions.saveHtmlStringToFile,processReadme)
                   }
             );
             Model result = process(whatevuh);

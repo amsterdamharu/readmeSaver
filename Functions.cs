@@ -181,38 +181,41 @@ namespace readmeApp
             return model;
         }
 
-        public static Func<Model, Model> processEachReadmeObject(Func<ReadMeObject, ReadMeObject> filling)
+        public static Func<Func<ReadMeObject, ReadMeObject>,Func<Model, Model>> processEachReadmeObject(Func<IHasError,bool> continueProcess)
         {
-            //return (m) => m;
-            Func<Model, Model> ret = (model) =>
+            return (Func<ReadMeObject, ReadMeObject> filling) =>
             {
-                List<Task> taskList = new List<Task>();
-                Array.ForEach(
-                    model.readmeObjects
-                    , (readmeObject) =>
-                    {
-                        taskList.Add(Task.Run(() =>
+                //return (m) => m;
+                Func<Model, Model> ret = (model) =>
+                {
+                    List<Task> taskList = new List<Task>();
+                    Array.ForEach(
+                        model.readmeObjects
+                        , (readmeObject) =>
                         {
-                            if (readmeObject.error == null)
+                            taskList.Add(Task.Run(() =>
                             {
-                                readmeObject.taskDetails = "";
-                                try
+                                if (continueProcess((IHasError)readmeObject))
                                 {
-                                    filling(readmeObject);
+                                    readmeObject.taskDetails = "";
+                                    try
+                                    {
+                                        filling(readmeObject);
+                                    }
+                                    catch (Exception e)
+                                    {
+                                        readmeObject.error = e.Message;
+                                    }
+
                                 }
-                                catch (Exception e)
-                                {
-                                    readmeObject.error = e.Message;
-                                }
-                                
-                            }
-                        }));
-                    }
-                );
-                Task.WaitAll(taskList.ToArray());
-                return model;
+                            }));
+                        }
+                    );
+                    Task.WaitAll(taskList.ToArray());
+                    return model;
+                };
+                return ret;
             };
-            return ret;
         }
         public static Func<Model, Model> throttle(Func<Model, Model> filling)
         {

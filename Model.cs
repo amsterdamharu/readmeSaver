@@ -7,8 +7,17 @@ using System.Threading.Tasks;
 
 namespace readmeApp
 {
+    interface IHasWebItem
+    {
+        IEnumerable<Object> webItem { get; set; }
+    }
+    interface IHasError
+    {
+        string error { get; set; }
+    }
 
-    class ReadMeObject
+
+    class ReadMeObject : IHasError
     {
         public string readmeStringContent { get; set; }
         public string htmlStringContent { get; set; }
