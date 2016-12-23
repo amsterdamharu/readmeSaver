@@ -45,15 +45,18 @@ namespace readmeApp
                   }
             );
             Model result = process(whatevuh);
-            var imageErrors = result.readmeObjects
+            ImageObject[] imageErrors = result.readmeObjects
+                    .Where((readmeObject)=> readmeObject.images != null)
                     .Select((readmeObject) => readmeObject.images
                         .Where((imageObject) => imageObject.error != null)
                     )
-                    .Aggregate((all, one) => {
+                    .Aggregate(
+                      new ImageObject[] {}
+                      ,(all, one) => {
                         if(all == null){
                             all = new ImageObject[] {};
                         }
-                        return all.Concat(one);
+                        return all.Concat(one).ToArray();
                     })
                     .ToArray();
 
