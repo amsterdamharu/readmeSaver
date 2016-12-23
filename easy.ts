@@ -76,7 +76,7 @@ console.log(`
  *************************************************************************
  *
  * grouped by handler, executes handler for each task first then goes to the next task
- * when all handlers finish it will go to the subtasks
+ * when no tasks and subtasks are to be executed by the handler it will go to the next handler
  * 
  ************************************************************************* 
  */
@@ -99,7 +99,7 @@ console.log(`
 /**
  *************************************************************************
  *
- * grouped by task (executes each handler for task and tasks subtask first)
+ * grouped by task; executes each handler for task and tasks subtask first
  * moves to the next task when all handlers of task and subtask are executed
  * 
  ************************************************************************* 
