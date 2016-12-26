@@ -7,18 +7,15 @@ using System.Threading.Tasks;
 
 namespace readmeApp
 {
-    interface IHasTasks
-    {
-        ITask[] TaskItems { get; set; }
-    }
     interface ITask
     {
         string error { get; set; }
         string taskDetails { get; set; }
+        ITask[] TaskItems { get; set; }
     }
 
 
-    class ReadMeObject : IHasTasks, ITask
+    class ReadMeObject : ITask
     {
         public string readmeStringContent { get; set; }
         public string htmlStringContent { get; set; }
@@ -37,12 +34,17 @@ namespace readmeApp
         public string fileName {get;set;}
         public string error { get; set; }
         public string taskDetails { get; set; }
+        public ITask[] TaskItems { get; set; }
+        public string basePath { get; set; }
     }
-    class Model : IHasTasks
+    class Model : ITask
     {
         public ITask[] TaskItems { get; set; }
-        public int activeConnections = 2;
+        public int activeTasks = 20;
+        public int activeConnections = 10;
         public int cooldownTime = 1000;
+        public string error { get; set; }
+        public string taskDetails { get; set; }
 
 
         //paths
