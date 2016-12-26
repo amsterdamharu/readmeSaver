@@ -44,7 +44,9 @@ namespace readmeApp
                                     Functions.compose(
                                         new Func<ITask, ITask>[] 
                                           { 
-                                            Functions.downLoadHtml
+                                            //@todo: should throttle webconnection here but need to wait for this to finish before moving on the next
+                                            //  throttle needed because throttleTask may start hundreds of tasks causing hundreds of web connections
+                                            Functions.downloadText
                                             ,Functions.setHtml
                                             ,Functions.setFileName
                                             ,Functions.setXml

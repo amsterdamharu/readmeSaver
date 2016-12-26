@@ -30,7 +30,7 @@ namespace readmeApp
             return readmeObject;
         }
 
-        public static ReadMeObject downLoadHtml(ITask o)
+        public static ReadMeObject downloadText(ITask o)
         {
             ReadMeObject readmeObject = (ReadMeObject)o;
             readmeObject.taskDetails = "Download:"+readmeObject.url;
