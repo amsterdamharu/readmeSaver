@@ -56,7 +56,7 @@ namespace readmeApp
         {
             ReadMeObject readmeObject = (ReadMeObject)o;
             readmeObject.taskDetails = "Save to:" + readmeObject.fileName;
-            System.IO.File.WriteAllText(readmeObject.fileName, readmeObject.htmlStringContent);
+            System.IO.File.WriteAllText(readmeObject.basePath + readmeObject.fileName, readmeObject.htmlStringContent);
             return readmeObject;
         }
         public static List<System.Xml.XmlNode> toList(System.Xml.XmlNodeList nodelist){
@@ -81,7 +81,7 @@ namespace readmeApp
                 {
                     ImageObject io = new ImageObject();
                     io.url = image.Attributes["src"].Value;
-                    io.basePath = readmeObject.fileName.Substring(0, readmeObject.fileName.Length - 5) + ".resource";
+                    io.basePath = readmeObject.basePath + readmeObject.fileName.Substring(0, readmeObject.fileName.Length - 5) + ".resource";
                     return io;
                 })
                 .ToArray();
@@ -198,6 +198,17 @@ namespace readmeApp
 
             readmeObject.htmlStringContent = stringWriter.GetStringBuilder().ToString();
             return readmeObject;
+        }
+        public static ITask setBasePath(ITask task)
+        {
+            Array.ForEach(
+                task.TaskItems
+                , (taskItem) =>
+                {
+                    taskItem.basePath = task.basePath;
+                }
+            );
+            return task;
         }
         public static Model removeDuplicateReadmeObjectUrl(ITask o)
         {

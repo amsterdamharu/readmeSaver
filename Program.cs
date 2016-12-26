@@ -23,6 +23,7 @@ namespace readmeApp
 
         public static void run (String[] args){
             Model workModel = new Model();
+            workModel.basePath = "E:\\tmp\\test\\";
             workModel.TaskItems = Model.rmObjects;
             List<Task> taskList = new List<Task>();
             List<Task> webConnectionList = new List<Task>();
@@ -39,6 +40,7 @@ namespace readmeApp
                     new Func<ITask, ITask>[] 
                         {
                             Functions.removeDuplicateReadmeObjectUrl//function that operates on the model
+                            ,Functions.setBasePath
                             ,processTasks(
                                 throttleTask(
                                     Functions.compose(
