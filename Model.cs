@@ -58,29 +58,5 @@ namespace readmeApp
         public StatusUpdate status;
         public Func<StatusUpdate, StatusUpdate> statusUpdater { get; set; }
 
-        //paths
-        #region
-        public static string paths = @"http://localhost:8888/documentation/tmpreadme/1.txt
-http://localhost:8888/documentation/tmpreadme/2.txt
-http://localhost:8888/documentation/tmpreadme/3.txt"; //https://raw.githubusercontent.com/amsterdamharu/redux-middleware/master/basic/README.md
-        #endregion
-
-        //creating a test ReadMeObject[]
-        #region
-        public static ReadMeObject[] rmObjects = ((Func<ReadMeObject[]>)(() =>
-        {
-            string[] why = Model.paths.Split(new string[] { "\r\n", "\n" }, StringSplitOptions.None);
-            return Model.paths.Split(new string[] { "\r\n", "\n" }, StringSplitOptions.None)
-                .Select((path)=>{
-                    ReadMeObject r = new ReadMeObject();
-                    r.url = path;
-                    return r;
-                })
-                .ToArray();
-        }))();
-
-
-        
-        #endregion
     }
 }

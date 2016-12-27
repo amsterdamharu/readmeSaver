@@ -17,7 +17,16 @@ namespace readmeApp
         public static void run (String[] args){
             Model workModel = new Model();
             workModel.basePath = "E:\\tmp\\test\\";
-            workModel.TaskItems = Model.rmObjects;
+            string paths = @"http://localhost:8888/documentation/tmpreadme/1.txt
+http://localhost:8888/documentation/tmpreadme/2.txt
+http://localhost:8888/documentation/tmpreadme/3.txt";
+            workModel.TaskItems = paths.Split(new string[] { "\r\n", "\n" }, StringSplitOptions.None)
+                .Select((path)=>{
+                    ReadMeObject r = new ReadMeObject();
+                    r.url = path;
+                    return r;
+                })
+                .ToArray();
             workModel.activeConnections = 2;
             workModel.statusUpdater = Program.updateHandler;
             Func<ITask, ITask> process = Functions.createPerTaskProcessor(workModel);
