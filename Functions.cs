@@ -59,6 +59,25 @@ namespace readmeApp
             System.IO.File.WriteAllText(readmeObject.basePath + readmeObject.fileName, readmeObject.htmlStringContent);
             return readmeObject;
         }
+        public static Func<ITask, ITask> createStatusUpdate(Model m)
+        {
+            return (task) =>
+            {
+                if (task.error == null)
+                {
+                    m.status.processed++;
+                }
+                else
+                {
+                    m.status.errors++;
+                }
+                if (m.statusUpdater != null)
+                {
+                    m.statusUpdater(m.status);
+                }
+                return task;
+            };
+        }
         public static List<System.Xml.XmlNode> toList(System.Xml.XmlNodeList nodelist){
             return nodelist.Cast<System.Xml.XmlNode>().ToList();
         }
@@ -88,7 +107,7 @@ namespace readmeApp
             readmeObject.TaskItems = l;
             return readmeObject;
         }
-        public static ImageObject setImageFileNamesPathsAndNewUrl(ITask o)
+        public static ImageObject setImageFileNamesPaths(ITask o)
         {
             ImageObject imageObject = (ImageObject)o;
             Uri url = new Uri(imageObject.url);
@@ -100,12 +119,6 @@ namespace readmeApp
             )
                 .Replace("%20", "-")
                 .Replace(":","-");
-            imageObject.newUrl = imageObject.basePath
-                + "/" 
-                +imageObject.filePath.Replace(
-                    Path.DirectorySeparatorChar
-                    , '/'
-                );
             return imageObject;
         }
         public static ImageObject createResourceRootDirectories(ITask o)
@@ -131,6 +144,12 @@ namespace readmeApp
                 new Uri(imageObject.url)
                 , check
             );
+            imageObject.newUrl = imageObject.basePath
+                + "/"
+                + imageObject.filePath.Replace(
+                    Path.DirectorySeparatorChar
+                    , '/'
+                );
             return imageObject;
         }
         public static ReadMeObject setUrlsInDocument(ITask o)
@@ -146,12 +165,16 @@ namespace readmeApp
                 , (imageNode) =>
                 {
                     ++index;
-                    imageNode.Attributes["src"].Value = ((ImageObject)readmeObject.TaskItems[index]).newUrl;
+                    string newUrl = ((ImageObject)readmeObject.TaskItems[index]).newUrl;
+                    if (newUrl != null)
+                    {
+                        imageNode.Attributes["src"].Value = ((ImageObject)readmeObject.TaskItems[index]).newUrl;
+                    }
                 }
             );
             return readmeObject;
         }
-        public static Func<Func<ITask,ITask>,Func<ITask,ITask>> createThrottle (int max,List<Task> taskList){
+        public static Func<Func<ITask,ITask>,Func<ITask,ITask>> createThrottle (int max,List<Task> taskList, Func<Task,Task> afterRun){
             return (Func<ITask, ITask> taskHandler) =>
             {
                 return (ITask task) =>
@@ -173,6 +196,7 @@ namespace readmeApp
                         
                     });
                     taskList.Add(t);
+                    afterRun(t);
                     return task;
                 };
             };
@@ -227,6 +251,10 @@ namespace readmeApp
             model.TaskItems = model.TaskItems
                 .Where((x) => returnValues[++index])
                 .ToArray();
+            model.status = new StatusUpdate();
+            model.status.errors = 0;
+            model.status.processed = 0;
+            model.status.total = model.TaskItems.Count();
             return model;
         }
 
@@ -260,6 +288,61 @@ namespace readmeApp
                 };
                 return ret;
             };
+        }
+        public static Func<ITask, ITask> createPerTaskProcessor(Model workModel)
+        {
+            List<Task> taskList = new List<Task>();
+            List<Task> webConnectionList = new List<Task>();
+            List<List<Task>> allTasks = new List<List<Task>>();
+            Func<Func<ITask, ITask>, Func<ITask, ITask>> processTasks =
+                Functions.processTaskList((m) => m.error == null);
+            Func<Func<ITask, ITask>, Func<ITask, ITask>> throttleTask = Functions.createThrottle(workModel.activeTasks, taskList, (x) => x);
+            Func<Func<ITask, ITask>, Func<ITask, ITask>> throttleWebConnectionAndWait
+                = Functions.createThrottle(workModel.activeConnections, webConnectionList, (x) => { Task.WaitAll(x); return x; });
+            allTasks.Add(taskList);
+            allTasks.Add(webConnectionList);
+            Func<ITask, ITask> waitForTasks = Functions.createWaitFor(allTasks);
+            Func<ITask, ITask> process =
+                Functions.compose(
+                    new Func<ITask, ITask>[] 
+                        {
+                            Functions.removeDuplicateReadmeObjectUrl//function that operates on the model
+                            ,Functions.setBasePath
+                            ,processTasks(
+                                throttleTask(
+                                    Functions.compose(
+                                        new Func<ITask, ITask>[] 
+                                          { 
+                                            //throttle webconnection here but need to wait for this to finish before moving on the next
+                                            //  throttle needed because throttleTask may start hundreds of tasks causing hundreds of web connections
+                                            throttleWebConnectionAndWait(Functions.downloadText)
+                                            ,Functions.setHtml
+                                            ,Functions.setFileName
+                                            ,Functions.setXml
+                                            ,Functions.createImageObjects
+                                            //following functions deal with imageObjects, should wrap them like processEachReadmeObject
+                                            ,processTasks(
+                                               Functions.setImageFileNamesPaths
+                                            )
+                                            ,processTasks(
+                                              Functions.createResourceRootDirectories
+                                            )
+                                            ,processTasks(
+                                              throttleWebConnectionAndWait(Functions.downloadImages)
+                                            )
+                                            //these operate on ReadmeObjects
+                                            ,Functions.setUrlsInDocument
+                                            ,Functions.rewriteHtmlString
+                                            ,Functions.saveHtmlStringToFile
+                                            ,Functions.createStatusUpdate(workModel)
+                                          }
+                                    )
+                                )
+                            )
+                            ,waitForTasks
+                        }
+                );
+            return process;
         }
     }
 }

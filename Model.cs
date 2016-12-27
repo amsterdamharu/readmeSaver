@@ -16,6 +16,13 @@ namespace readmeApp
     }
 
 
+    class StatusUpdate
+    {
+        public int processed {get;set;}
+        public int errors { get; set; }
+        public int total { get; set; }
+    }
+
     class ReadMeObject : ITask
     {
         public string readmeStringContent { get; set; }
@@ -48,7 +55,8 @@ namespace readmeApp
         public string basePath {get; set;}
         public string error { get; set; }
         public string taskDetails { get; set; }
-
+        public StatusUpdate status;
+        public Func<StatusUpdate, StatusUpdate> statusUpdater { get; set; }
 
         //paths
         #region
