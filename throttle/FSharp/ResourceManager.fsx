@@ -3,46 +3,66 @@ open Module
 
 type ResourceMessage =
   | Wait of ResourceRequest
-  | Running of ResourceRequest
+  | Run of ResourceRequest
   | ReleaseResource of ResourceRequest
 
 type ResourceManager(numberOfActiveResources) =
+  let removeReleasedResource (resourceMessages:ResourceMessage[]) (message:ResourceMessage) =
+    let ret = 
+      let resourceRequest =
+        match message with
+        | ReleaseResource(m) -> m
+        | _ -> failwith "Why would you call removeReleasedResource with no ResourceMessage of type ReleaseResource"
+      resourceMessages
+      |> Array.filter (
+        fun messageItem -> 
+          match messageItem with
+          | Run(rr) -> rr <> resourceRequest
+          | _ -> true
+      )
+    ret
 
-  let splitRequests (resourceMessages:ResourceMessage[]) = 
+  let getLastWaitingMessage resourceMessages =
+    (Array.concat [
+      (resourceMessages
+        |> Array.map 
+          (fun msg -> match msg with
+                      | Wait r -> Some(msg)
+                      | _ -> None)
+        ); 
+        [|None|] 
+    ])
+    |> Array.reduce 
+      (fun lastWait item -> 
+        match item with
+        | Some msg -> Some(msg)
+        | None -> lastWait)
+
+  let splitRequests (resourceMessages:ResourceMessage[]) (releaseMessage:ResourceMessage option)= 
     let continueAndNewList : ResourceMessage [] * ResourceMessage option = 
       match resourceMessages.Length with
       | 0 -> (resourceMessages, None)
       | _ ->
-            let noReleased = resourceMessages
-                                    |> Array.filter 
-                                        (fun req -> match req with
-                                                    | ReleaseResource(r) -> false
-                                                    | _ -> true)
             //get the last Wait type message, and remove that one from the list
-            let toSend = (Array.concat [
-                            (resourceMessages
-                              |> Array.map 
-                              (fun msg -> match msg with
-                                          | Wait r -> Some(Wait(r))
-                                          | _ -> None)
-                            ); 
-                            [|None|] 
-                          ])
-                          |> Array.reduce 
-                            (fun lastWait item -> 
-                              match item with
-                              | Some msg -> Some(msg)
-                              | None -> lastWait)
+            let toSend = getLastWaitingMessage resourceMessages
             (
               (**
-                first in tuple Removed any ReleaseResource ResourceMessage from resourceRequests
-                  and the first Wait ResourceMessage
-                second in tuple first Wait ResourceMessage
-              *)
+              //@todo
+                When sending:
+                  Without Release messge:
+                    * (done) get the last Waiting message and send the message on this object
+                      then change the Waiting message type to Running message type
+                  With Release mesage:
+                    Same as without release 
+                    * (done) remove the release message from the list
+                  *)
               (
-                match toSend with
-                              | None -> noReleased
-                              | Some msg -> (noReleased |> Array.filter (fun m -> m <> msg))
+                match releaseMessage with
+                | None -> resourceMessages
+                | Some msg -> 
+                  match msg with
+                  | ReleaseResource(resourceRequest) -> (removeReleasedResource resourceMessages msg)
+                  | _ -> failwith "Should not come here, releaseMessage is not none but also not ReleaseResourceMessage"
               )
               ,toSend
             )
@@ -54,7 +74,22 @@ type ResourceManager(numberOfActiveResources) =
                   | Wait m -> m
                   | _ -> failwith "A continue can only be sent to a waiting message."
         do msg.Continue()
-        continueAndNewList
+        //map the list here to update the Wait of resourceRequest to a Run of resourceRequest
+        let updatetedList = (
+          (fst continueAndNewList)
+            |> Array.map (
+              fun messageItem ->
+                match messageItem with
+                | Wait(m) ->
+                  if m = msg then
+                    Run(m)
+                  else
+                    messageItem
+                | _ -> messageItem
+            )
+        )
+        (updatetedList, (snd continueAndNewList))
+
     | None -> continueAndNewList
     
     
@@ -67,15 +102,15 @@ type ResourceManager(numberOfActiveResources) =
               let r = match (resourceMessages.Length) with
                       | x when x < numberOfActiveResources ->
                         do (resourceMessages, Some(Wait(resourceMessage))) |> sendMessage |> ignore
-                        Running(resourceMessage)
+                        Run(resourceMessage)
                       | x when x >= numberOfActiveResources ->
                         Wait(resourceMessage)
                       | _ -> failwith "This is just dumb, how can x be anything else but smaller or biggerEqual"
               return! loop(Array.append [|r|] resourceMessages)
-          | Running(resourceMessage) -> raise (System.ArgumentException("Cannot send a message with a running task."))
-          | ReleaseResource(resourceRequest) -> //@todo: remove the message that has been released, not just the last one!!!!
+          | Run(resourceMessage) -> raise (System.ArgumentException("Cannot send a message with a running task."))
+          | ReleaseResource(resourceRequest) ->
             let continueAndNewList = 
-              (splitRequests resourceMessages) |> sendMessage
+              ((splitRequests resourceMessages) (Some (ReleaseResource resourceRequest))) |> sendMessage
             return! loop(fst continueAndNewList) }
       loop [||])
   member this.RequestResource = message.Post
@@ -106,7 +141,7 @@ let asAsync fn arg =
     printfn "Async method starting with arg %d" arg
     let result = (fn arg)
     do! Async.Sleep ((16-arg)*20)
-    printfn "Async method returning with arg %d" arg
+    printfn "<<<<<< Async method returning with arg %d" arg
     return result
   }
 let throttledFn :((int -> Async<int>) -> int -> Async<int>) = (createThrottle 2)
