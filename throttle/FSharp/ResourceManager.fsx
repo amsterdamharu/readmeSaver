@@ -26,9 +26,10 @@ type ResourceManager(numberOfActiveResources) =
     (Array.concat [
       (resourceMessages
         |> Array.map 
-          (fun msg -> match msg with
-                      | Wait r -> Some(msg)
-                      | _ -> None)
+          (fun msg -> 
+          match msg with
+          | Wait r -> Some(msg)
+          | _ -> None)
         ); 
         [|None|] 
     ])
@@ -46,16 +47,6 @@ type ResourceManager(numberOfActiveResources) =
             //get the last Wait type message, and remove that one from the list
             let toSend = getLastWaitingMessage resourceMessages
             (
-              (**
-              //@todo
-                When sending:
-                  Without Release messge:
-                    * (done) get the last Waiting message and send the message on this object
-                      then change the Waiting message type to Running message type
-                  With Release mesage:
-                    Same as without release 
-                    * (done) remove the release message from the list
-                  *)
               (
                 match releaseMessage with
                 | None -> resourceMessages
@@ -80,11 +71,7 @@ type ResourceManager(numberOfActiveResources) =
             |> Array.map (
               fun messageItem ->
                 match messageItem with
-                | Wait(m) ->
-                  if m = msg then
-                    Run(m)
-                  else
-                    messageItem
+                | Wait(m) when m = msg -> Run(m)
                 | _ -> messageItem
             )
         )
