@@ -1,4 +1,4 @@
-module Module
+module ResourceRequest
 
 type ResourceRequest() =
     let replyChannel = ref []

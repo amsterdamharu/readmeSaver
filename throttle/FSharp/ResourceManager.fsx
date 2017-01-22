@@ -1,5 +1,5 @@
 #load "ResourceRequest.fsx"
-open Module
+open ResourceRequest
 
 type ResourceMessage =
   | Wait of ResourceRequest
@@ -7,14 +7,14 @@ type ResourceMessage =
   | ReleaseResource of ResourceRequest
 
 type ResourceManager(numberOfActiveResources) =
-  let removeReleasedResource (resourceMessages:ResourceMessage[]) (message:ResourceMessage) =
+  let removeReleasedResource (resourceMessages:List<ResourceMessage>) (message:ResourceMessage) =
     let ret = 
       let resourceRequest =
         match message with
         | ReleaseResource(m) -> m
         | _ -> failwith "Why would you call removeReleasedResource with no ResourceMessage of type ReleaseResource"
       resourceMessages
-      |> Array.filter (
+      |> List.filter (
         fun messageItem -> 
           match messageItem with
           | Run(rr) -> rr <> resourceRequest
@@ -23,24 +23,24 @@ type ResourceManager(numberOfActiveResources) =
     ret
 
   let getLastWaitingMessage resourceMessages =
-    (Array.concat [
+    (List.concat [
       (resourceMessages
-        |> Array.map 
+        |> List.map 
           (fun msg -> 
           match msg with
           | Wait r -> Some(msg)
           | _ -> None)
         ); 
-        [|None|] 
+        [None] 
     ])
-    |> Array.reduce 
+    |> List.reduce 
       (fun lastWait item -> 
         match item with
         | Some msg -> Some(msg)
         | None -> lastWait)
 
-  let splitRequests (resourceMessages:ResourceMessage[]) (releaseMessage:ResourceMessage option)= 
-    let continueAndNewList : ResourceMessage [] * ResourceMessage option = 
+  let splitRequests (resourceMessages:List<ResourceMessage>) (releaseMessage:ResourceMessage option)= 
+    let continueAndNewList : List<ResourceMessage> * ResourceMessage option = 
       match resourceMessages.Length with
       | 0 -> (resourceMessages, None)
       | _ ->
@@ -58,7 +58,7 @@ type ResourceManager(numberOfActiveResources) =
               ,toSend
             )
     continueAndNewList
-  let sendMessage (continueAndNewList:ResourceMessage [] * ResourceMessage option) = 
+  let sendMessage (continueAndNewList:List<ResourceMessage> * ResourceMessage option) = 
     match (snd continueAndNewList) with
     | Some resourceRequest -> 
         let msg = match resourceRequest with
@@ -68,7 +68,7 @@ type ResourceManager(numberOfActiveResources) =
         //map the list here to update the Wait of resourceRequest to a Run of resourceRequest
         let updatetedList = (
           (fst continueAndNewList)
-            |> Array.map (
+            |> List.map (
               fun messageItem ->
                 match messageItem with
                 | Wait(m) when m = msg -> Run(m)
@@ -82,7 +82,7 @@ type ResourceManager(numberOfActiveResources) =
     
   let message =
     MailboxProcessor.Start(fun inbox ->
-      let rec loop (resourceMessages:ResourceMessage[]) =
+      let rec loop (resourceMessages:List<ResourceMessage>) =
         async { let! msg = inbox.Receive()
           match msg with
           | Wait(resourceMessage) ->
@@ -93,13 +93,13 @@ type ResourceManager(numberOfActiveResources) =
                       | x when x >= numberOfActiveResources ->
                         Wait(resourceMessage)
                       | _ -> failwith "This is just dumb, how can x be anything else but smaller or biggerEqual"
-              return! loop(Array.append [|r|] resourceMessages)
+              return! loop(r :: resourceMessages)
           | Run(resourceMessage) -> raise (System.ArgumentException("Cannot send a message with a running task."))
           | ReleaseResource(resourceRequest) ->
             let continueAndNewList = 
               ((splitRequests resourceMessages) (Some (ReleaseResource resourceRequest))) |> sendMessage
             return! loop(fst continueAndNewList) }
-      loop [||])
+      loop [])
   member this.RequestResource = message.Post
   member this.ReleaseResource = message.Post
 
@@ -117,7 +117,7 @@ let createThrottle activeTasks =
         return calculatedReturnValue
       }
 
-(** test to see how this works *)
+(** test to see how this works 
 printfn ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
 let testFn arg = 
   printfn "In testFn, val is:%d" arg
@@ -140,3 +140,5 @@ let result = [1 .. 15]
             |> Async.RunSynchronously
 printfn "DONE"
 printfn ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>" 
+
+*)
